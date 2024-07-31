@@ -1,6 +1,10 @@
+# A collection of custom functions and classes used in the
+# Hospital Staffing tutorial.
+#
 import numpy as np
 import scipy as sp
 import pandas as pd
+import tensorflow as tf
 from matplotlib.colors import CSS4_COLORS
 
 ######################
@@ -119,6 +123,7 @@ def df_mask(df: pd.DataFrame, cond: dict, return_index=False):
         mask = df[mask].index
     return mask
 
+
 def random_colors(keys: np.array, seed=67):
     '''Generates a random set of colors from CSS4_COLORS
     which can be used for plotting with matplotlib.
@@ -136,13 +141,13 @@ def random_colors(keys: np.array, seed=67):
     return {k:c for k,c in zip(keys, colors)}
 
 
-def bucketize(x: np.array, num_buckets: int) -> np.array:
+def bucketize(values: np.array, num_buckets: int) -> np.array:
     '''Bucketizes a 1D numpy array by splitting the data range,
-    range(min(x), max(x)), into uniform buckets and counting
-    the numper of data points for each bucket.
+    range(min(values), max(values)), into uniform buckets and 
+    counting the numper of data points for each bucket.
 
     Inputs:
-        x: A 1D numpy array of float values.
+        values: A 1D numpy array of float values.
 
         num_buckets: An integet setting the number of buckets.
 
@@ -150,10 +155,10 @@ def bucketize(x: np.array, num_buckets: int) -> np.array:
         A tuple of 1D numpy arrays (buckets, multiplicities) of shapes
         output_shapes = ((bucket_size), (bucket_size)).
     '''
-    x = np.sort(x)
+    x = np.sort(values)
     num_samples = x.shape[0]
     bucket_size = (x[-1] - x[0])/num_buckets
-    buckets = np.arange(x[0], x[-1], bucket_size)
+    buckets = np.arange(x[0], x[-1]+bucket_size, bucket_size)[:num_buckets]
     
     multiplicities = []
     i = 0
@@ -168,6 +173,16 @@ def bucketize(x: np.array, num_buckets: int) -> np.array:
     m = np.sum(x >= buckets[-1])
     multiplicities.append(m)
     return buckets, multiplicities
+
+
+def r2_score(y_true, y_pred):
+    '''Computes the R-squared score for predictions, y_pred, compared
+    to the true values y_true.
+    R2 = 1 - sum((y_true - y_pred)**2) / sum((y_true - <y_true>)**2)
+    '''
+    sum_squares_residuals = np.sum(np.square(y_true - y_pred))
+    sum_squares = np.sum(np.square(y_true - np.mean(y_true)))
+    return 1 - sum_squares_residuals / sum_squares
 
 
 def fit_gaussian(x, best_fit=False, num_buckets=100, num_steps = 1000, learning_rate=0.1):
