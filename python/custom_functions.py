@@ -232,3 +232,71 @@ def fit_gaussian(x, best_fit=False, num_buckets=100, num_steps = 1000, learning_
             g.set_std = g.std - learning_rate*delta_sigma
             
     return g
+
+def seq_acf(data, p):
+    '''Evaluates the auto-correlation function, with lag p, of a set of 
+    sequences, data, with shape = (size, seq_len).
+
+    Inputs:
+        data: A numpy array of sequences with data.shape[0] = size: number of
+        sequences and data.shape[1] = seq_len: length of the sequences (assumed
+        to be uniform.)
+
+        p: The lag for the ACF: ACF(p) = CF(x[k], x[k+p]).
+
+    Returns:
+        The float value ACF(p) for the sequences data.
+    
+    Raises:
+        ValueError when the lag p is larger than the sequence length.
+    '''
+    size, seq_len = data.shape
+    if p > seq_len-1:
+        raise ValueError('Lag cannot be longer than the sequence length.')
+    x = data - np.mean(data)
+    var = np.var(x)
+    x_left = x[:,:seq_len-p]  #shape= (size,p)
+    x_right = x[:,p:] #shape= (size,p)
+    return np.mean(x_left*x_right)/var
+
+
+def seq_to_AR_ds(data, p):
+    '''From the set of sequences in data with data.shape = (size, seq_len),
+    generates a pair x, y of partial sequences x and the corresponding next
+    elements y with shapes:
+        x.shape = (size*(seq_len-p+1) , p)
+        y.shape = (size*(seq_len-p+1),)
+
+    Inputs:
+        data: A numpy array of sequences with data.shape[0] = size: number of
+        sequences and data.shape[1] = seq_len: length of the sequences (assumed
+        to be uniform.)
+
+        p: The length of the partial sequences x. Corresponds to the p parameter
+        of AR(p) model the data is intended for.
+
+    Returns:
+        A tuple, (x,y) of partial sequence x and their next completion y, where
+        x and y are numpy arrays.
+    '''
+    x = np.empty([0,p], dtype=float)
+    y = np.empty([0], dtype=float)
+    for i in range(data.shape[1]-p):
+        x = np.concatenate([x, data[:,i:i+p]], axis=0)
+        y = np.concatenate([y, data[:,i+p].flatten()], axis=0)
+    return x, y
+
+
+def seq_gen(seq, model, scale_factor=1.0, max_seq_len=8):
+    '''Generate the rest of a partial sequence, seq, using the
+    provided (auto-regressive) keras model up to maximum sequence
+    length max_seq_len.
+    '''
+    i = len(seq)-1
+    while i < max_seq_len:
+        # Infer next element of the sequence
+        target = model.predict([seq], verbose=0)[i,0]
+        # Add the inferred target to sequence
+        seq = np.concatenate([seq, target])
+        i+=1
+    return seq*scale_factor
