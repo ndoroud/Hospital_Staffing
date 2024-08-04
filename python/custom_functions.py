@@ -287,16 +287,49 @@ def seq_to_AR_ds(data, p):
     return x, y
 
 
-def seq_gen(seq, model, scale_factor=1.0, max_seq_len=8):
-    '''Generate the rest of a partial sequence, seq, using the
-    provided (auto-regressive) keras model up to maximum sequence
-    length max_seq_len.
+def seq_to_RNN_ds(data):
+    '''From the set of sequences in data with data.shape = (size, seq_len),
+    generates a pair x, y of partial sequences x and the corresponding next
+    elements sequence y with shapes:
+        x.shape = (size, seq_len-1)
+        y.shape = (size, seq_len-1)
+
+    Inputs:
+        data: A numpy array of sequences with data.shape[0] = size: number of
+        sequences and data.shape[1] = seq_len: length of the sequences (assumed
+        to be uniform.)
+
+    Returns:
+        A tuple, (x,y) of partial sequence x and their next completion y, where
+        x and y are numpy arrays.
     '''
-    i = len(seq)-1
-    while i < max_seq_len:
+    input_seq = data[:,:-1]
+    target_seq = data[:,1:,np.newaxis]
+    return (input_seq, target_seq)
+    
+
+def predict_seq(seed_seq, inf_model, *model_args, p=1, scale_factor=1.0, max_seq_len=8):
+    '''Generate the rest of a partial sequence, seed_seq, using the
+    provided (auto-regressive) inference model function, inf_model,
+    up to maximum sequence length max_seq_len.
+    '''
+    seq = np.array(seed_seq).flatten()
+    while seq.shape[0] < max_seq_len:
         # Infer next element of the sequence
-        target = model.predict([seq], verbose=0)[i,0]
+        target = inf_model(seq[-p:], *model_args)
         # Add the inferred target to sequence
         seq = np.concatenate([seq, target])
-        i+=1
     return seq*scale_factor
+
+
+def rnn_predict_seq(seed_seq, rnn_model, *model_args, scale_factor=1.0, max_seq_len=8):
+    '''Generate the rest of a partial sequence, seed_seq, using the
+    provided RNN model up to maximum sequence length max_seq_len.
+    '''
+    seq = np.array(seed_seq).reshape(1,-1)
+    while seq.shape[1] < max_seq_len:
+        # Infer next element of the sequence
+        target = rnn_model.predict(seq, *model_args, verbose=0).flatten()[np.newaxis,-1:]
+        # Add the inferred target to sequence
+        seq = np.concatenate([seq, target], axis=1)
+    return seq.flatten()*scale_factor
